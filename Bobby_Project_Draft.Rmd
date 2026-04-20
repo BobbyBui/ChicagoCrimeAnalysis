@@ -1,0 +1,246 @@
+```{r}
+crime_data = read.csv("~/Downloads/ChicagoCrime.csv")
+```
+
+```{r}
+chi_2022 = read.csv("~/Downloads/Chi_2022.csv")
+```
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+
+
+crime_data_recent <- crime_data %>% 
+  filter(Year == 2022)
+
+crime_pivot <- crime_data_recent %>%
+  group_by(`Community.Area`, `Primary.Type`) %>%
+  summarise(Count = n()) %>%
+  ungroup() %>%
+  pivot_wider(names_from = `Primary.Type`, 
+              values_from = Count,
+              values_fill = 0)
+
+crime_pivot
+```
+
+```{r}
+crime_pivot <- crime_data_recent %>%
+  group_by(`Community.Area`, `Primary.Type`) %>%
+  summarise(Count = n()) %>%
+  ungroup() %>%
+  pivot_wider(names_from = `Primary.Type`, 
+              values_from = Count,
+              values_fill = 0)
+
+crime_pivot
+```
+
+
+```{r}
+crime_pivot2 <- crime_data_recent %>%
+  group_by(`Community.Area`, `Primary.Type`) %>%
+  summarise(Count = n())
+ggplot(crime_pivot2, aes(x = Community.Area, y = Count)) + geom_col() + xlab("Community Area") + ylab("Crime Count")
+```
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+
+income = chi_2022 %>%
+  summarise(GEOID, GEOG , INC_LT_25K, INC_25_50K, INC_50_75K, INC_75_100K, INC_100_150K, INC_GT_150, MEDINC, INCPERCAP, HT_Cost_Typical, HT_Cost_Mod, H_Cost_Typical,
+H_Cost_Mod, T_Cost_Typical, T_Cost_Mod)
+income
+
+```
+```{r}
+
+ggplot(income, aes(x = GEOID, y = MEDINC)) + geom_col()
+```
+
+```{r}
+crime_pivot <- crime_data_recent %>%
+  group_by(`Community.Area`, `Primary.Type`) %>%
+  summarise(Count = n()) %>%
+  ungroup() %>%
+  pivot_wider(names_from = `Primary.Type`, 
+              values_from = Count,
+              values_fill = 0)
+
+total_crime_list = crime_pivot %>%
+  mutate(total_crime = rowSums(.)) %>%
+  summarise(Community.Area, total_crime)
+
+income_list = chi_2022 %>%
+  rename("Community.Area" = GEOID) %>%
+  summarise(Community.Area, GEOG,TOT_POP, MEDINC, INCPERCAP)
+
+sample_data = income_list %>%
+  full_join(total_crime_list, by = "Community.Area") %>%
+  mutate(crime_rate = (total_crime / TOT_POP))
+
+total_crime_list
+income_list
+sample_data
+```
+```{r}
+ggplot(sample_data, aes(x = INCPERCAP, y = crime_rate)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+
+ggplot(sample_data, aes(x = MEDINC, y = crime_rate)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+```
+
+```{r}
+sample_sum = sample_data %>% 
+  summarize(across(everything(), list(mean = mean, sd = sd)),
+            n = n(),
+            r = cor(crime_rate, INCPERCAP)) %>% 
+  relocate(n)
+
+df_lm = lm(crime_rate ~ INCPERCAP, data = sample_data)
+cf = coef(df_lm)
+cf
+summary(df_lm)
+```
+
+```{r}
+cf
+ci = 1.311743e-01 + c(-1,1) * qt(0.975, 75) * -8.742145e-07
+ci
+```
+
+```{r}
+b = 1.311743e-01
+t = b / 0.05944 
+t
+pt(t, df = 75, lower.tail = TRUE)
+```
+
+```{r}
+race = income = chi_2022 %>%
+  summarise(GEOID, GEOG , TOT_POP, WHITE, HISP, BLACK, ASIAN,OTHER)
+race_sample = race %>%
+  rename("Community.Area" = GEOID) %>%
+  full_join(total_crime_list, by = "Community.Area") %>%
+  mutate(P_WHITE = WHITE / TOT_POP) %>%
+  mutate(P_HISP = HISP / TOT_POP) %>%
+  mutate(P_BLACK = BLACK / TOT_POP) %>%
+  mutate(P_ASIAN = ASIAN / TOT_POP) %>%
+  mutate(P_OTHER = OTHER / TOT_POP) %>%
+  mutate(crime_rate = (total_crime / TOT_POP))
+
+race_sample
+```
+```{r}
+ggplot(race_sample, aes(x = P_WHITE, y = crime_rate)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+
+ggplot(race_sample, aes(x = P_HISP, y = crime_rate)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+
+ggplot(race_sample, aes(x = P_BLACK, y = crime_rate)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+
+ggplot(race_sample, aes(x = P_ASIAN, y = crime_rate)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+
+ggplot(race_sample, aes(x = P_OTHER, y = crime_rate)) + geom_point() + geom_smooth(method = "lm", se = FALSE)
+```
+
+```{r}
+df_lm_MODEL = lm(crime_rate ~ P_WHITE + P_HISP + P_BLACK + P_ASIAN + P_OTHER, data = race_sample)
+summary(df_lm_MODEL)
+```
+
+Ω
+```{r}
+df_lm_WHITE = lm(crime_rate ~ P_WHITE, data = race_sample)
+summary(df_lm_WHITE)
+
+cf = coef(df_lm_WHITE)
+cf
+b = -0.1291097
+
+ci = b + c(-1,1) * qt(0.975, 75) * 0.05165
+ci
+
+t = b / 0.05165
+t
+pt(t, df = 75, lower.tail = TRUE)
+
+cor.test(race_sample$P_WHITE, race_sample$crime_rate)
+```
+
+```{r}
+df_lm_HISP = lm(crime_rate ~ P_HISP, data = race_sample)
+summary(df_lm_HISP)
+
+cf = coef(df_lm_HISP)
+cf
+b = -0.1104367
+
+ci = b + c(-1,1) * qt(0.975, 75) * 0.05392
+ci
+
+t = b / 0.05392
+t
+pt(t, df = 75, lower.tail = TRUE)
+
+cor.test(race_sample$P_HISP, race_sample$crime_rate)
+```
+
+```{r}
+df_lm_BLACK = lm(crime_rate ~ P_BLACK, data = race_sample)
+summary(df_lm_BLACK)
+
+cf = coef(df_lm_BLACK)
+cf
+b = 0.12633533 
+
+ci = b + c(-1,1) * qt(0.975, 75) * 0.6268
+ci
+
+t = b / 0.6268
+t
+pt(t, df = 75, lower.tail = TRUE)
+
+cor.test(race_sample$P_BLACK, race_sample$crime_rate)
+```
+
+```{r}
+df_lm_ASIAN = lm(crime_rate ~ P_ASIAN, data = race_sample)
+summary(df_lm_ASIAN)
+
+cf = coef(df_lm_ASIAN)
+cf
+b = -0.1169435
+
+ci = b + c(-1,1) * qt(0.975, 75) * -0.1169435
+ci
+
+t = b / 0.04218
+t
+pt(t, df = 75, lower.tail = TRUE)
+
+cor.test(race_sample$P_ASIAN, race_sample$crime_rate)
+```
+
+```{r}
+df_lm_OTHER = lm(crime_rate ~ P_OTHER, data = race_sample)
+summary(df_lm_OTHER)
+
+cf = coef(df_lm_OTHER)
+cf
+b = -0.4676100 
+
+ci = b + c(-1,1) * qt(0.975, 75) * 0.06157
+ci
+
+t = b / 0.06157
+t
+pt(t, df = 75, lower.tail = TRUE)
+
+
+cor.test(race_sample$P_OTHER, race_sample$crime_rate)
+```
+
